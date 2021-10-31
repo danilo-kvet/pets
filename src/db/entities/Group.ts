@@ -4,7 +4,7 @@ import { Animal } from ".";
 @Entity()
 export default class Group {
   @PrimaryGeneratedColumn()
-  id!: number;
+  readonly id!: number;
 
   @Column()
   name!: string;
@@ -13,5 +13,5 @@ export default class Group {
   scientific_name!: string;
 
   @OneToMany(() => Animal, (animal) => animal.group)
-  animals!: Animal[];
+  animals?: Animal[];
 }

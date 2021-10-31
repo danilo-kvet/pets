@@ -12,7 +12,7 @@ import { Characteristic, Group } from ".";
 @Entity()
 export default class Animal {
   @PrimaryGeneratedColumn()
-  id!: number;
+  readonly id!: number;
 
   @Column()
   name!: string;
