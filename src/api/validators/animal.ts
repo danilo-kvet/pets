@@ -1,4 +1,5 @@
-import { object, string, number, array } from "yup";
+import { object, string, number, array, SchemaOf } from "yup";
+import { AnimalPayload } from "../types/animal";
 
 export default object({
   name: string().required(),
@@ -14,4 +15,4 @@ export default object({
     name: string().required(),
     scientific_name: string().required(),
   }),
-});
+}) as SchemaOf<AnimalPayload>;

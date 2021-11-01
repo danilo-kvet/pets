@@ -1,7 +1,9 @@
-import { Animal, Characteristic, Group, User } from "../../db/entities";
+// @ts-nocheck
+import { Animal, Characteristic, Group } from "../../db/entities";
 import { Repository } from "typeorm";
 import { Request, Response } from "express";
 import animalSchema from "../validators/animal";
+import { AnimalPayload } from "../types/animal";
 
 export default class AnimalController {
   animalRepository!: Repository<Animal>;
@@ -20,14 +22,39 @@ export default class AnimalController {
 
   async create(req: Request, res: Response) {
     try {
+      const { group, characteristics, ...animal } = req.body as AnimalPayload;
       await animalSchema.validate(req.body, {
         abortEarly: false,
       });
 
-      const animal = this.animalRepository.create(req.body);
-      await this.animalRepository.save(animal);
+      const animalInstance = this.animalRepository.create(animal) as Animal;
+      let groupInstance = await this.groupRepository.findOne(group);
 
-      return res.send(animal);
+      if (!groupInstance) {
+        groupInstance = this.groupRepository.create(group);
+        await this.groupRepository.save(groupInstance);
+      }
+
+      const characteristicsInstances = await Promise.all(
+        characteristics.map(async (characteristic) => {
+          let characteristicInstance =
+            await this.characteristicRepository.findOne(characteristic);
+
+          if (!characteristicInstance) {
+            characteristicInstance =
+              this.characteristicRepository.create(characteristic);
+            await this.characteristicRepository.save(characteristicInstance);
+          }
+
+          return characteristicInstance;
+        })
+      );
+
+      animalInstance.characteristics = characteristicsInstances;
+      animalInstance.group = groupInstance;
+      await this.animalRepository.save(animalInstance);
+
+      return res.send(animalInstance);
     } catch (ex) {
       return res.send(ex);
     }
@@ -35,7 +62,9 @@ export default class AnimalController {
 
   async list(req: Request, res: Response) {
     try {
-      const animals = await this.animalRepository.find();
+      const animals = await this.animalRepository.find({
+        relations: ["characteristics", "group"],
+      });
 
       return res.send(animals);
     } catch (ex) {
@@ -69,7 +98,40 @@ export default class AnimalController {
         res.status(404).send({ error: "Not found" });
       }
 
-      return res.send(animal);
+      const { group, characteristics, ...animalPayload } =
+        req.body as AnimalPayload;
+
+      const animalInstance = this.animalRepository.merge(
+        animal,
+        animalPayload
+      ) as Animal;
+      let groupInstance = await this.groupRepository.findOne(group);
+
+      if (!groupInstance) {
+        groupInstance = this.groupRepository.create(group);
+        await this.groupRepository.save(groupInstance);
+      }
+
+      const characteristicsInstances = await Promise.all(
+        characteristics.map(async (characteristic) => {
+          let characteristicInstance =
+            await this.characteristicRepository.findOne(characteristic);
+
+          if (!characteristicInstance) {
+            characteristicInstance =
+              this.characteristicRepository.create(characteristic);
+            await this.characteristicRepository.save(characteristicInstance);
+          }
+
+          return characteristicInstance;
+        })
+      );
+
+      animalInstance.characteristics = characteristicsInstances;
+      animalInstance.group = groupInstance;
+      await this.animalRepository.save(animalInstance);
+
+      return res.send(animalInstance);
     } catch (ex) {
       return res.send(ex);
     }
