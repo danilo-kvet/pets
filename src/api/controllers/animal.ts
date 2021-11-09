@@ -4,7 +4,9 @@ import { Repository } from "typeorm";
 import { Request, Response } from "express";
 import animalSchema from "../validators/animal";
 import { AnimalPayload } from "../types/animal";
-
+import redis from "redis";
+import getRedisClient from "../../loaders/redis";
+const { promisify } = require("util");
 export default class AnimalController {
   animalRepository!: Repository<Animal>;
   groupRepository!: Repository<Group>;
@@ -53,6 +55,11 @@ export default class AnimalController {
       animalInstance.characteristics = characteristicsInstances;
       animalInstance.group = groupInstance;
       await this.animalRepository.save(animalInstance);
+      const animals = await this.animalRepository.find({
+        relations: ["characteristics", "group"],
+      });
+      const redisClient = await getRedisClient();
+      redisClient.set("animals", JSON.stringify(animals), redis.print);
 
       return res.send(animalInstance);
     } catch (ex) {
@@ -62,9 +69,16 @@ export default class AnimalController {
 
   async list(req: Request, res: Response) {
     try {
-      const animals = await this.animalRepository.find({
-        relations: ["characteristics", "group"],
-      });
+      const redisClient = await getRedisClient();
+      const getAsync = promisify(redisClient.get).bind(redisClient);
+
+      let animals = await getAsync("animals");
+
+      if (!animals) {
+        animals = await this.animalRepository.find({
+          relations: ["characteristics", "group"],
+        });
+      }
 
       return res.send(animals);
     } catch (ex) {
